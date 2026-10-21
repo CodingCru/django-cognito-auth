@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django-cognito-auth"
+version = "0.1.0"
+description = "AWS Cognito authentication core for Django — JWT verification, OAuth2 code exchange, native USER_PASSWORD_AUTH. No models, no views, no user-model assumptions."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "Django>=4.2",
+    "requests>=2.32",
+    "PyJWT[crypto]>=2.12",
+    "pydantic>=2.0",
+    "boto3>=1.35",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "pytest-django>=4.12",
+    "cryptography>=44.0",
+    "ruff>=0.15",
+    "mypy>=1.19",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/django_cognito_auth"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "C4", "PIE", "ISC"]
+ignore = ["E501"]
+
+[tool.mypy]
+ignore_missing_imports = true
+strict_optional = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
