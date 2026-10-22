@@ -9,12 +9,10 @@ turns a Cognito authorization code or a login form into verified user
 data; what you do with that (create a user, link an identity, start a
 session) is up to your app.
 
-Extracted from [examerio](https://github.com/CodingCru/examerio).
-
 ## Install
 
 ```bash
-pip install git+https://github.com/CodingCru/django-cognito-auth.git@v0.1.0
+pip install git+https://github.com/CodingCru/django-cognito-auth.git@v0.1.2
 ```
 
 ## Settings
@@ -50,6 +48,21 @@ except CognitoAuthError as exc:
 `user_data.get_provider()` returns `"google"` for a federated Google
 login, `"cognito"` otherwise — useful as the `provider` value if you're
 linking identities to a local user record.
+
+## Security notes
+
+- **OAuth `state`**: this package doesn't generate or verify a `state`
+  parameter on the hosted-UI flow — that's on you, to prevent login
+  CSRF. Set one before redirecting to Cognito, verify it in your
+  callback.
+- **`UserNotConfirmedException`** confirms an account exists (distinct
+  from the generic "invalid email or password" message). Enable
+  Cognito's "Prevent user existence errors" pool setting if that's not
+  acceptable for your app.
+- **`parse_id_token`** is meant for tokens your own server just
+  received from Cognito. If you ever use it to verify client-supplied
+  bearer tokens instead, an unknown `kid` triggers a JWKS re-fetch per
+  request — rate-limit or cache around that.
 
 ## Development
 

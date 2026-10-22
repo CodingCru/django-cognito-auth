@@ -34,6 +34,7 @@ def make_token(private_key: rsa.RSAPrivateKey, **overrides: object) -> str:
         "email": "test@example.com",
         "iss": CognitoAuth._issuer(),
         "aud": settings.COGNITO_CLIENT_ID,
+        "token_use": "id",
         "exp": datetime.now(tz=UTC) + timedelta(hours=1),
         "iat": datetime.now(tz=UTC),
     }
@@ -99,6 +100,19 @@ class TestParseIdToken:
             CognitoAuth, "get_jwks_client", return_value=mock_jwks_client
         ):
             with pytest.raises(jwt.exceptions.InvalidIssuerError):
+                CognitoAuth.parse_id_token(token)
+
+    def test_access_token_use_raises(
+        self,
+        rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+        mock_jwks_client: MagicMock,
+    ) -> None:
+        private_key, _ = rsa_keys
+        token = make_token(private_key, token_use="access")
+        with patch.object(
+            CognitoAuth, "get_jwks_client", return_value=mock_jwks_client
+        ):
+            with pytest.raises(jwt.exceptions.InvalidTokenError, match="Not an ID token"):
                 CognitoAuth.parse_id_token(token)
 
 

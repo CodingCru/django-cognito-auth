@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import hmac
+from typing import Any
 
 import boto3
 import jwt
@@ -21,9 +22,12 @@ class CognitoAuthError(Exception):
 
 
 class CognitoAuth:
-    base_url = f"{settings.COGNITO_DOMAIN}/oauth2"
     _session: requests.Session | None = None
     _jwks_client: PyJWKClient | None = None
+
+    @classmethod
+    def base_url(cls) -> str:
+        return f"{settings.COGNITO_DOMAIN}/oauth2"
 
     @classmethod
     def _region(cls) -> str:
@@ -64,9 +68,10 @@ class CognitoAuth:
         if settings.COGNITO_CLIENT_SECRET:
             data["client_secret"] = settings.COGNITO_CLIENT_SECRET
         response = cls.get_session().post(
-            f"{cls.base_url}/token",
+            f"{cls.base_url()}/token",
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data=data,
+            timeout=10,
         )
         response.raise_for_status()
         return CognitoTokens.model_validate(response.json())
@@ -83,8 +88,8 @@ class CognitoAuth:
 
     @classmethod
     def initiate_user_password_auth(cls, email: str, password: str) -> CognitoTokens:
-        """Native email/password login (EXM-93) — the frontend's own login
-        form, as opposed to the hosted-UI redirect `exchange_code` serves.
+        """Native email/password login — your own login form, as opposed
+        to the hosted-UI redirect `exchange_code` serves.
         """
         auth_parameters = {"USERNAME": email, "PASSWORD": password}
         if settings.COGNITO_CLIENT_SECRET:
@@ -100,6 +105,9 @@ class CognitoAuth:
         except ClientError as exc:
             code = exc.response["Error"]["Code"]
             if code == "UserNotConfirmedException":
+                # Confirms the account exists, unlike the message below —
+                # enable Cognito's "Prevent user existence errors" setting
+                # if that's unacceptable.
                 raise CognitoAuthError(
                     "Please confirm your email before logging in."
                 ) from exc
@@ -127,13 +135,17 @@ class CognitoAuth:
             audience=settings.COGNITO_CLIENT_ID,
             issuer=cls._issuer(),
         )
+        # AWS-recommended check; aud above already rejects access tokens in practice.
+        if payload.get("token_use") != "id":
+            raise jwt.exceptions.InvalidTokenError("Not an ID token")
         return CognitoUserData.model_validate(payload)
 
     @classmethod
-    def get_user_info(cls, access_token: str) -> dict[str, str]:
+    def get_user_info(cls, access_token: str) -> dict[str, Any]:
         response = cls.get_session().get(
-            f"{cls.base_url}/userInfo",
+            f"{cls.base_url()}/userInfo",
             headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
         )
         response.raise_for_status()
         return response.json()
