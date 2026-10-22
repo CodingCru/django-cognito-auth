@@ -12,7 +12,7 @@ session) is up to your app.
 ## Install
 
 ```bash
-pip install git+https://github.com/CodingCru/django-cognito-auth.git@v0.1.2
+pip install git+https://github.com/CodingCru/django-cognito-auth.git@v0.1.3
 ```
 
 ## Settings
@@ -51,10 +51,15 @@ linking identities to a local user record.
 
 ## Security notes
 
-- **OAuth `state`**: this package doesn't generate or verify a `state`
-  parameter on the hosted-UI flow — that's on you, to prevent login
-  CSRF. Set one before redirecting to Cognito, verify it in your
-  callback.
+- **OAuth `state`**: `CognitoAuth.generate_state()`/`verify_state()` give
+  you a random value and a constant-time comparison — but storing and
+  attaching it is still on you, since this package has no views. If
+  your redirect to Cognito's hosted UI happens client-side (e.g. a
+  plain `<a href>` to a prebuilt URL, not a Django view), generate the
+  state there instead and verify only on the Django side via a
+  double-submit cookie: set the value as a cookie before redirecting,
+  append it as `&state=...` on the Cognito URL, then in your callback
+  compare the cookie against the `state` Cognito sends back.
 - **`UserNotConfirmedException`** confirms an account exists (distinct
   from the generic "invalid email or password" message). Enable
   Cognito's "Prevent user existence errors" pool setting if that's not

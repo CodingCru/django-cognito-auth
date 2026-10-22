@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import hmac
+import secrets
 from typing import Any
 
 import boto3
@@ -149,3 +150,18 @@ class CognitoAuth:
         )
         response.raise_for_status()
         return response.json()
+
+    @classmethod
+    def generate_state(cls) -> str:
+        """A random value for the OAuth `state` CSRF check — store it
+        (e.g. a cookie) before redirecting to Cognito's hosted UI, then
+        verify it against what the callback returns.
+        """
+        return secrets.token_urlsafe(32)
+
+    @classmethod
+    def verify_state(cls, expected: str | None, received: str | None) -> bool:
+        """Constant-time comparison for the OAuth `state` CSRF check."""
+        if not expected or not received:
+            return False
+        return secrets.compare_digest(expected, received)

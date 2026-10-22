@@ -235,3 +235,27 @@ class TestGetProvider:
             sub="sub-1", identities=[CognitoIdentity(providerName="Facebook")]
         )
         assert user_data.get_provider() == "cognito"
+
+
+class TestState:
+    def test_generate_state_is_random_and_url_safe(self) -> None:
+        a = CognitoAuth.generate_state()
+        b = CognitoAuth.generate_state()
+        assert a != b
+        assert len(a) > 20
+
+    def test_matching_state_verifies(self) -> None:
+        state = CognitoAuth.generate_state()
+        assert CognitoAuth.verify_state(state, state) is True
+
+    def test_mismatched_state_fails(self) -> None:
+        assert CognitoAuth.verify_state("abc", "xyz") is False
+
+    def test_missing_expected_fails(self) -> None:
+        assert CognitoAuth.verify_state(None, "xyz") is False
+
+    def test_missing_received_fails(self) -> None:
+        assert CognitoAuth.verify_state("abc", None) is False
+
+    def test_both_missing_fails(self) -> None:
+        assert CognitoAuth.verify_state(None, None) is False
