@@ -59,6 +59,25 @@ class CognitoAuth:
         return cls._jwks_client
 
     @classmethod
+    def _http_error_message(cls, response: requests.Response) -> str:
+        """Summarise a failed Cognito HTTP call as a user-safe message."""
+        status = response.status_code
+        detail = ""
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        # /oauth2/token reports {"error", "error_description"}, /oauth2/userInfo
+        # reports {"message"}.
+        if isinstance(body, dict):
+            for key in ("error_description", "error", "message"):
+                value = body.get(key)
+                if isinstance(value, str) and value:
+                    detail = f": {value}"
+                    break
+        return f"Cognito request failed with status {status}{detail}"
+
+    @classmethod
     def exchange_code(
         cls,
         code: str,
@@ -90,7 +109,10 @@ class CognitoAuth:
             data=data,
             timeout=10,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise CognitoAuthError(cls._http_error_message(response)) from exc
         return CognitoTokens.model_validate(response.json())
 
     @classmethod
@@ -164,7 +186,10 @@ class CognitoAuth:
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise CognitoAuthError(cls._http_error_message(response)) from exc
         return response.json()
 
     @classmethod

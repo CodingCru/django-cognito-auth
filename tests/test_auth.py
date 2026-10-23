@@ -3,6 +3,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import jwt
+import requests
 import pytest
 from botocore.exceptions import ClientError
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -207,6 +208,58 @@ class TestInitiateUserPasswordAuth:
             CognitoAuth.initiate_user_password_auth("student@example.com", "password")
         call_kwargs = mock_client.initiate_auth.call_args.kwargs
         assert "SECRET_HASH" not in call_kwargs["AuthParameters"]
+
+
+def make_error_response(status_code: int, body: bytes) -> requests.Response:
+    response = requests.Response()
+    response.status_code = status_code
+    response.url = "https://pool.auth.eu-west-1.amazoncognito.com/oauth2/token"
+    response.encoding = "utf-8"
+    response._content = body
+    return response
+
+
+class TestExchangeCode:
+    def setup_method(self) -> None:
+        CognitoAuth._session = None
+
+    def test_http_error_raises_cognito_auth_error(self) -> None:
+        session = MagicMock()
+        session.post.return_value = make_error_response(400, b'{"error": "invalid_grant"}')
+        with patch.object(CognitoAuth, "get_session", return_value=session):
+            with pytest.raises(CognitoAuthError) as exc_info:
+                CognitoAuth.exchange_code("auth-code")
+        assert not isinstance(exc_info.value, requests.HTTPError)
+        assert isinstance(exc_info.value.__cause__, requests.HTTPError)
+        assert "400" in str(exc_info.value)
+        assert "invalid_grant" in str(exc_info.value)
+
+
+class TestGetUserInfo:
+    def setup_method(self) -> None:
+        CognitoAuth._session = None
+
+    def test_http_error_raises_cognito_auth_error(self) -> None:
+        session = MagicMock()
+        session.get.return_value = make_error_response(401, b'{"message": "Invalid token"}')
+        with patch.object(CognitoAuth, "get_session", return_value=session):
+            with pytest.raises(CognitoAuthError) as exc_info:
+                CognitoAuth.get_user_info("access-token")
+        assert not isinstance(exc_info.value, requests.HTTPError)
+        assert isinstance(exc_info.value.__cause__, requests.HTTPError)
+        assert "401" in str(exc_info.value)
+        assert "Invalid token" in str(exc_info.value)
+
+    def test_non_json_error_body_is_not_leaked(self) -> None:
+        session = MagicMock()
+        session.get.return_value = make_error_response(
+            502, b"<html><body>Bad gateway</body></html>"
+        )
+        with patch.object(CognitoAuth, "get_session", return_value=session):
+            with pytest.raises(CognitoAuthError) as exc_info:
+                CognitoAuth.get_user_info("access-token")
+        assert "Bad gateway" not in str(exc_info.value)
+        assert "502" in str(exc_info.value)
 
 
 class TestGetProvider:
