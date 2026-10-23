@@ -77,3 +77,7 @@ pytest
 ruff check .
 mypy src
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Found a security issue? See [SECURITY.md](SECURITY.md) instead of opening a public issue.
