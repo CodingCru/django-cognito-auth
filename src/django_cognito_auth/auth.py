@@ -59,7 +59,23 @@ class CognitoAuth:
         return cls._jwks_client
 
     @classmethod
-    def exchange_code(cls, code: str) -> CognitoTokens:
+    def exchange_code(
+        cls,
+        code: str,
+        *,
+        expected_state: str | None = None,
+        received_state: str | None = None,
+    ) -> CognitoTokens:
+        """Exchange a hosted-UI authorization code for tokens.
+
+        Pass `expected_state` (what you stored before redirecting, e.g. a
+        cookie) and `received_state` (what the callback request got back)
+        to verify the OAuth `state` CSRF check before any network call is
+        made. Omit both to preserve the old, unchecked behavior.
+        """
+        if expected_state is not None or received_state is not None:
+            if not cls.verify_state(expected_state, received_state):
+                raise CognitoAuthError("Invalid or missing OAuth state.")
         data = {
             "grant_type": "authorization_code",
             "client_id": settings.COGNITO_CLIENT_ID,

@@ -237,6 +237,51 @@ class TestGetProvider:
         assert user_data.get_provider() == "cognito"
 
 
+class TestExchangeCode:
+    def mock_session(self) -> MagicMock:
+        session = MagicMock()
+        session.post.return_value.json.return_value = {
+            "access_token": "access-123",
+            "id_token": "id-123",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        }
+        return session
+
+    def test_success_without_state_kwargs(self) -> None:
+        """Omitting both state kwargs preserves the pre-#5 unchecked behavior."""
+        session = self.mock_session()
+        with patch.object(CognitoAuth, "get_session", return_value=session):
+            tokens = CognitoAuth.exchange_code("auth-code")
+        assert tokens.access_token == "access-123"
+        session.post.assert_called_once()
+
+    def test_success_with_matching_state(self) -> None:
+        session = self.mock_session()
+        with patch.object(CognitoAuth, "get_session", return_value=session):
+            tokens = CognitoAuth.exchange_code(
+                "auth-code", expected_state="abc", received_state="abc"
+            )
+        assert tokens.access_token == "access-123"
+        session.post.assert_called_once()
+
+    def test_mismatched_state_raises_before_network_call(self) -> None:
+        session = self.mock_session()
+        with patch.object(CognitoAuth, "get_session", return_value=session):
+            with pytest.raises(CognitoAuthError, match="Invalid or missing OAuth state"):
+                CognitoAuth.exchange_code(
+                    "auth-code", expected_state="abc", received_state="xyz"
+                )
+        session.post.assert_not_called()
+
+    def test_missing_received_state_raises_before_network_call(self) -> None:
+        session = self.mock_session()
+        with patch.object(CognitoAuth, "get_session", return_value=session):
+            with pytest.raises(CognitoAuthError, match="Invalid or missing OAuth state"):
+                CognitoAuth.exchange_code("auth-code", expected_state="abc")
+        session.post.assert_not_called()
+
+
 class TestState:
     def test_generate_state_is_random_and_url_safe(self) -> None:
         a = CognitoAuth.generate_state()

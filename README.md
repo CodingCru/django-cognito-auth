@@ -12,7 +12,7 @@ session) is up to your app.
 ## Install
 
 ```bash
-pip install git+https://github.com/CodingCru/django-cognito-auth.git@v0.1.3
+pip install git+https://github.com/CodingCru/django-cognito-auth.git@v0.2.0
 ```
 
 ## Settings
@@ -30,8 +30,25 @@ COGNITO_USER_POOL_ID = "<region>_<id>"
 ```python
 from django_cognito_auth import CognitoAuth, CognitoAuthError
 
-# Hosted-UI redirect callback
-tokens = CognitoAuth.exchange_code(code)
+# Redirect to the hosted UI — generate a state value, stash it in a
+# cookie, and append it to the Cognito URL. See docs/wiring-up-state.md
+# for the full double-submit-cookie pattern, including the client-side
+# redirect case (a plain `<a href>` instead of a Django view).
+state = CognitoAuth.generate_state()
+response = redirect(f"{hosted_ui_url}&state={state}")
+response.set_cookie("oauth_state", state, httponly=True, samesite="Lax")
+
+# Hosted-UI redirect callback — pass both state values so a mismatch
+# raises CognitoAuthError before any request reaches Cognito.
+try:
+    tokens = CognitoAuth.exchange_code(
+        request.GET["code"],
+        expected_state=request.COOKIES.get("oauth_state"),
+        received_state=request.GET.get("state"),
+    )
+except CognitoAuthError:
+    # Invalid/missing state — reject the callback, don't exchange the code.
+    ...
 user_data = CognitoAuth.parse_id_token(tokens.id_token)
 if not user_data.email:
     info = CognitoAuth.get_user_info(tokens.access_token)
@@ -51,15 +68,11 @@ linking identities to a local user record.
 
 ## Security notes
 
-- **OAuth `state`**: `CognitoAuth.generate_state()`/`verify_state()` give
-  you a random value and a constant-time comparison — but storing and
-  attaching it is still on you, since this package has no views. If
-  your redirect to Cognito's hosted UI happens client-side (e.g. a
-  plain `<a href>` to a prebuilt URL, not a Django view), generate the
-  state there instead and verify only on the Django side via a
-  double-submit cookie: set the value as a cookie before redirecting,
-  append it as `&state=...` on the Cognito URL, then in your callback
-  compare the cookie against the `state` Cognito sends back.
+- **OAuth `state`**: pass `expected_state`/`received_state` to
+  `exchange_code()` as shown above — see
+  [`docs/wiring-up-state.md`](docs/wiring-up-state.md) for the full
+  double-submit-cookie pattern, including the client-side-redirect case
+  (a plain `<a href>` to a prebuilt URL, not a Django view).
 - **`UserNotConfirmedException`** confirms an account exists (distinct
   from the generic "invalid email or password" message). Enable
   Cognito's "Prevent user existence errors" pool setting if that's not
