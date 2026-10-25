@@ -219,7 +219,7 @@ def make_error_response(status_code: int, body: bytes) -> requests.Response:
     return response
 
 
-class TestExchangeCode:
+class TestExchangeCodeHttpErrors:
     def setup_method(self) -> None:
         CognitoAuth._session = None
 
