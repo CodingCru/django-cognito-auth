@@ -12,7 +12,7 @@ session) is up to your app.
 ## Install
 
 ```bash
-pip install git+https://github.com/CodingCru/django-cognito-auth.git@v0.2.0
+pip install git+https://github.com/CodingCru/django-cognito-auth.git@v0.3.0
 ```
 
 ## Settings
@@ -65,6 +65,14 @@ except CognitoAuthError as exc:
 `user_data.get_provider()` returns `"google"` for a federated Google
 login, `"cognito"` otherwise — useful as the `provider` value if you're
 linking identities to a local user record.
+
+**0.3.0+**: every public method raises `CognitoAuthError` on failure,
+not just `initiate_user_password_auth()` — `exchange_code()` and
+`get_user_info()` used to let a raw `requests.HTTPError` escape on a
+non-2xx response; both now catch it and re-raise as `CognitoAuthError`
+(chained via `from`, so the original response is still reachable on
+`exc.__cause__` for logging). If you were catching `requests.HTTPError`
+around either call, switch to `CognitoAuthError`.
 
 ## Security notes
 
