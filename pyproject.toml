@@ -24,6 +24,8 @@ dev = [
     "cryptography>=44.0",
     "ruff>=0.15",
     "mypy>=1.19",
+    "tox>=4.0",
+    "tox-gh-actions>=3.0",
 ]
 
 [tool.pytest.ini_options]

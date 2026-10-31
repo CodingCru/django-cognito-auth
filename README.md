@@ -99,6 +99,14 @@ ruff check .
 mypy src
 ```
 
+Against the full supported Python/Django matrix (Python 3.11–3.13,
+Django 4.2/5.1/5.2 — needs those interpreters installed locally,
+e.g. via `pyenv` or your OS package manager):
+
+```bash
+tox
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Found a security issue? See [SECURITY.md](SECURITY.md) instead of opening a public issue.
